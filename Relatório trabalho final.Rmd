@@ -1,0 +1,477 @@
+---
+title: "Relatório Analítico de Nomes"
+author:
+ - "Luis Felipe Sousa de Oliveira Borges"
+ - "Samuel Manata Guerra"
+ - "Heitor Pereira Avelar"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  nomes_selecionados: ["ANA", "JOAO"]
+  ano_inicio: 1930
+  ano_fim: 2010
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+
+library(tidyverse)
+library(plotly)
+library(DT)
+library(forecast)
+library(lubridate)
+library(scales)
+library(ggrepel)
+
+df_final <- readRDS("bdTratado.rds")
+
+df_app <- df_final %>%
+  mutate(
+    frequencia = as.numeric(frequencia),
+    var_pct_num = readr::parse_number(as.character(var_pct)),
+    rank_decada = as.integer(rank_decada),
+    rotulo_decada = case_when(
+      ano_fim == 1930 ~ "Antes de 1930",
+      TRUE ~ paste0(ano_fim - 9, "-", ano_fim)
+    ),
+    decada_label_ordenada = factor(rotulo_decada, levels = unique(rotulo_decada)[order(unique(ano_fim))])
+  )
+
+#Filtragem baseada nos parâmetros
+dados_filtrados <- df_app %>%
+  filter(nome %in% params$nomes_selecionados) %>%
+  filter(ano_fim >= params$ano_inicio & ano_fim <= params$ano_fim)
+
+#Dados auxiliares para o gráfico de pizza
+dados_pizza <- df_app %>%
+  ungroup() %>%
+  filter(ano_fim >= params$ano_inicio & ano_fim <= params$ano_fim) %>%
+  summarise(total = sum(frequencia, na.rm = TRUE)) %>%
+  pull(total)
+
+df_selecionados_pizza <- dados_filtrados %>%
+  group_by(nome) %>%
+  summarise(valor = sum(frequencia, na.rm = TRUE)) %>%
+  arrange(desc(valor))
+
+valor_outros <- dados_pizza - sum(df_selecionados_pizza$valor)
+
+if (valor_outros > 0) {
+  df_pizza_final <- bind_rows(
+    df_selecionados_pizza,
+    tibble(nome = "Outros (Restante)", valor = valor_outros)
+  )
+} else {
+  df_pizza_final <- df_selecionados_pizza
+}
+```
+
+1.  Introdução
+
+O relatório apresenta uma análise técnica da estrutura de dados,
+metodologia estatística e implementação da aplicação Shiny. O projeto
+visa explorar a evolução temporal dos nomes presentes na turma,
+aplicando técnicas de limpeza de dados, visualização interativa e
+modelagem preditiva.
+
+\*Para gerar os gráficos desse relatório foi escolhido os nomes de Ana e
+João por serem os mais frequentes
+
+\*O ano de início foi definido em 1930 para gerar esse relatório, visto
+que NA não geraria o arquivo HTML
+
+1.1 Pacotes
+
+tidyverse
+
+dplyr
+
+tidyr
+
+purrr
+
+stringr
+
+ggplot2
+
+ggrepel
+
+plotly
+
+DT
+
+forecast
+
+lubridate
+
+scales
+
+\*apenas no shiny
+
+shiny
+
+bslib
+
+bsicons
+
+2.  Tratamento de dados
+
+O tratamento dos dados ocorreu em uma primeira instância, visando uma
+melhor observação, a transformação dos dados em arquivo .rds para um
+data frame. Após realizada esta transformação objetivou-se uma separação
+da coluna que continha as informações do período e a frequência dos
+nomes em colunas únicas para cada informação, para isso usou-se da função
+unnest_wider.
+
+A obtenção dos períodos para que houvesse a separação entre o ano de
+início de uma década para o ano final dessa década ocorreu em um
+processo de converter a string período para dados numéricos e utiliza da
+função str_extract para pegar o ano inicial, o ano final, por sua vez,
+foi feito somando 9 ao ano de início. Nos dados há um caso especial, no
+qual não há ano inicial do período, para esse caso foi feito uma lógica
+condicional (case_when) para lidar com esse período em específico e
+determinar o seu ano final em 1929.
+
+Por fim, realizado esse tratamento inicial foram criadas novas métricas
+para enriquecimento da análise e ao realizar essas métricas foi criado
+um novo arquivo .rds para o banco de dados final totalmente tratado. Em
+relação às métricas novas, elas são:
+
+-   Diferença Absoluta (dif_abs): Crescimento ou queda líquida de
+    registros entre períodos.
+
+-   Variação percentual(var_pct): Taxa de crescimento ou decrescimento
+    relativa dos nomes em relação ao período anterior.
+
+-   Ranking na década (rank_decada): Utiliza dense_rank para determinar
+    a popularidade relativa do nome em cada década específica,
+    atribuindo posições de popularidade do nome no período.
+
+-   Proporções (prop e prop_decada): Calcula a proporção da frequência
+    do nome em relação ao todo e em relação à década.
+
+3.  O Aplicativo Analítico Interativo (App Shiny)
+
+O aplicativo Explorador de nomes brasileiros foi desenvolvido em R,
+utilizando o Shiny, com o objetivo de fornecer uma plataforma interativa
+para a análise de séries temporais de frequência de nomes brasileiros
+(\<2010). O design do App é dividido em uma barra lateral de controle e
+múltiplos painéis de análise, cada um focado em uma perspectiva
+estatística distinta.
+
+3.1. Componentes de Controle e Sumário:
+
+A barra lateral permite a seleção de múltiplos nomes (selectizeInput) e
+a definição do escopo temporal (sliderInput), controlando todos os
+painéis de resultados. Os indicadores-chave de Desempenho (KPIs),
+apresentados em Value Boxes, oferecem um sumário estatístico imediato:
+
+Total de Nascimentos: O volume absoluto de registros para os nomes
+selecionados.
+
+Nome Vencedor (Volume): O nome com a maior frequência acumulada no
+período.
+
+Década com Mais Registros: O período de dez anos que concentrou a maior
+frequência total do conjunto selecionado.
+
+4.  Análise detalhada por painel (estrutura do Shiny):
+
+4.1. Visão Geral
+
+Este painel apresenta a frequência absoluta dos nomes selecionados.
+
+O Gráfico de linha ilustra a série temporal da frequência por década,
+sendo essencial para identificar visualmente o pico de popularidade e o
+início de qualquer declínio. O Gráfico de Barras complementa,
+consolidando o volume total acumulado de cada nome, validando o KPI de
+"Nome Vencedor".
+
+```{r}
+g <- ggplot(dados_filtrados, aes(x = ano_fim, y = frequencia, color = nome)) +
+  geom_line(linewidth = 1) +
+  geom_point(aes(text = paste0("Nome: ", nome, "<br>Década: ", rotulo_decada, "<br>Frequência: ", frequencia))) +
+  labs(title = "Evolução Temporal", x = "Década", y = "Total de Registros", color = "") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1930, 2010, 10))
+ggplotly(g, tooltip = "text")
+
+```
+
+```{r}
+df_barras <- dados_filtrados %>%
+  group_by(nome) %>%
+  summarise(total = sum(frequencia, na.rm = TRUE)) %>%
+  mutate(nome = fct_reorder(nome, total))
+
+g <- ggplot(df_barras, aes(x = total, y = nome, fill = nome)) +
+  geom_col() +
+  scale_x_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) +
+  labs(title = "Total Acumulado", x = "Total Acumulado", y = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none")
+ggplotly(g, tooltip = c("x", "y"))
+```
+
+4.2. Frequência Geral
+
+O painel de Frequência Geral é a linha de base para contextualização.
+Ele exibe o total de registros em todo o dataset por década. A
+observação da aceleração no volume total de registros, principalmente na
+década de 2000 até 2009.
+
+```{r}
+dados_total <- df_app %>%
+  filter(ano_fim >= params$ano_inicio & ano_fim <= params$ano_fim) %>%
+  group_by(decada_label_ordenada) %>%
+  summarise(Frequencia_Total = sum(frequencia, na.rm = TRUE))
+
+g <- ggplot(dados_total, aes(x = decada_label_ordenada, y = Frequencia_Total)) +
+  geom_bar(stat = "identity", fill = "#5F9EA0", alpha = 0.8) +
+  labs(title = "Total de Registros (Universo Completo)", x = "Período", y = "Total") +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplotly(g)
+```
+
+4.3. Ranking
+
+O painel de Ranking transforma a frequência absoluta em posição relativa
+(rank_decada) dentro de cada década. O Gráfico de Disputa de
+Popularidade é vital para identificar ultrapassagens e a
+sustentabilidade da popularidade independentemente do volume absoluto.
+Um nome pode estar crescendo em frequência absoluta, mas caindo em
+ranking, indicando uma perda de relevância proporcional.
+
+```{r}
+g <- ggplot(dados_filtrados, aes(x = ano_fim, y = rank_decada, color = nome)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2, aes(text = paste0("Posição: #", rank_decada))) +
+  scale_y_reverse() +
+  labs(title = "Disputa de Popularidade", x = "Década", y = "Posição no Ranking", color = "") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1930, 2010, 10))
+ggplotly(g, tooltip = "text")
+```
+
+4.4. Dinâmica & Variação
+
+Velocidade de Crescimento: O gráfico de barras exibe a Diferença
+Absoluta de registros em relação à década anterior, quantificando o
+ganho ou perda real.
+
+Gráfico de Proporção (Pizza): Demonstra a fatia de pizza dos nomes
+selecionados em relação ao total de registros no período,
+contextualizando a relevância do subconjunto em todo o universo de
+nascimentos.
+
+```{r}
+df_vel <- dados_filtrados %>%
+  mutate(
+    tipo_crescimento = ifelse(dif_abs >= 0, "Crescimento", "Queda"),
+    texto_tooltip = paste0("Nome: ", nome, "<br>Mudança: ", dif_abs)
+  )
+
+g <- ggplot(df_vel, aes(x = ano_fim, y = dif_abs, fill = tipo_crescimento, text = texto_tooltip)) +
+  geom_col(position = "dodge") +
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
+  scale_fill_manual(values = c("Crescimento" = "#18bc9c", "Queda" = "#e74c3c")) +
+  labs(title = "Velocidade (Ganho/Perda Real)", x = "Década", y = "Diferença Absoluta", fill = "") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1930, 2010, 10))
+
+ggplotly(g, tooltip = "text")
+
+```
+
+```{r}
+cores_personalizadas <- c(scales::hue_pal()(nrow(df_pizza_final) - 1), "#d3d3d3")
+    
+plot_ly(df_pizza_final, labels = ~nome, values = ~valor, type = 'pie',
+        textinfo = 'label+percent', 
+        hoverinfo = 'text',
+        text = ~paste(nome, '<br>Total:', scales::comma(valor, big.mark = ".")),
+        sort = FALSE, 
+        marker = list(colors = cores_personalizadas, line = list(color = '#FFFFFF', width = 1))) %>% 
+  layout(showlegend = TRUE, title = "Participação no Total")
+```
+
+4.5. Volatilidade
+
+O painel de Volatilidade mede o risco ou a instabilidade da série de
+popularidade. A métrica de Volatilidade indica o quão errático é o
+crescimento ou declínio de um nome.
+
+Alta Volatilidade: Nomes que disparam e caem rapidamente , como WALLACE
+e RYAN, são menos previsíveis.
+
+Baixa Volatilidade: Nomes com trajetória suave e estável.
+
+```{r}
+df_vol <- df_app %>%
+  group_by(nome) %>%
+  arrange(ano_fim) %>%
+  mutate(var_pct = (frequencia - lag(frequencia)) / lag(frequencia)) %>%
+  filter(!is.na(var_pct)) %>% 
+  summarise(volatilidade = sqrt(mean((var_pct)^2)), .groups = "drop") %>%
+  arrange(desc(volatilidade))
+
+
+df_vol_sel <- df_vol %>% filter(nome %in% params$nomes_selecionados)
+
+g <- ggplot(df_vol_sel, aes(x = reorder(nome, volatilidade), y = volatilidade, fill = nome)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Índice de Volatilidade (Selecionados)", x = "Nome", y = "Volatilidade") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggplotly(g)
+```
+
+4.6. Análises Estatísticas
+
+Crescimento Médio: Estima a taxa média de variação da frequência entre a
+primeira e a última década.
+
+Centralidade Temporal: Determina o Ano Médio Ponderado de popularidade.
+Um nome com Centralidade próxima a 1940 teve seu maior peso histórico no
+passado, enquanto um nome com Centralidade próxima a 2000 é uma
+tendência mais recente.
+
+```{r}
+df_cent <- dados_filtrados %>%
+  group_by(nome) %>%
+  summarise(centralidade = weighted.mean(ano_fim, frequencia, na.rm = TRUE))
+
+g <- ggplot(df_cent, aes(x = centralidade, y = reorder(nome, centralidade), color = nome)) +
+  geom_point(size = 5) +
+  labs(title = "Centralidade Temporal", y = NULL, x = "Ano Médio Ponderado") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1930, 2010, 10))
+
+ggplotly(g)
+```
+
+4.7. Tendência Linear
+
+Aqui, a Regressão Linear Simples modela a relação Frequência \~ Tempo.
+
+A tabela de resultados fornece:
+
+A taxa média de alteração da frequência por década, sendo o principal
+indicador da direção da tendência.
+
+A métrica de qualidade do ajuste, indicando a porcentagem da variância
+da frequência explicada pelo fator tempo.
+
+```{r}
+g <- ggplot(dados_filtrados, aes(x = ano_fim, y = frequencia, color = nome)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Regressão Linear", x = "Ano", y = "Frequência") +
+  theme_minimal()
+ggplotly(g)
+```
+
+4.8. Previsão
+
+O painel de Previsão aplica o modelo ARIMA para prever a frequência dos
+nomes entre 2020 e 2030. O gráfico exibe a extrapolação da série,
+oferecendo uma estimativa da frequência esperada para a década
+2020–2030, fundamental para análises prospectivas.
+
+```{r}
+serie_base <- dados_filtrados %>%
+  group_by(nome, ano_fim) %>%
+  summarise(freq = sum(frequencia), .groups = "drop")
+
+lista_prev <- list()
+
+
+for (nom in unique(serie_base$nome)) {
+  df_nome <- serie_base %>% filter(nome == nom) %>% arrange(ano_fim)
+
+  if(nrow(df_nome) > 2) {
+    ts_nome <- ts(df_nome$freq, start = df_nome$ano_fim[1], frequency = 1)
+    
+    try({
+      modelo <- forecast::auto.arima(ts_nome)
+      previsao <- forecast::forecast(modelo, h = 2) 
+      df_prev_nome <- tibble(
+        ano_fim = seq(from = max(df_nome$ano_fim) + 10, by = 10, length.out = 2),
+        freq = as.numeric(previsao$mean),
+        nome = nom
+      )
+      lista_prev[[nom]] <- df_prev_nome
+    }, silent = TRUE)
+  }
+}
+
+df_prevencao <- bind_rows(lista_prev)
+
+g <- ggplot() +
+  geom_line(data = serie_base, aes(x = ano_fim, y = freq, color = nome), linewidth = 1) +
+  geom_line(data = df_prevencao, aes(x = ano_fim, y = freq, color = nome), 
+            linewidth = 1, linetype = "dashed") +
+  labs(title = "Previsão ARIMA (2020-2030)", x = "Ano", y = "Frequência") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1930, 2030, 10))
+
+ggplotly(g)
+```
+
+4.9. Tabela
+
+A tabela final mostra dados como: Nome, década, frequência, variação
+percentual, e posição no ranking, como opção de filtrar para facilitar a
+visualização.
+
+```{r}
+dados_filtrados %>%
+  select(
+    `Início` = ano_inicio,  
+    Nome = nome,
+    Década = rotulo_decada,
+    Frequência = frequencia,
+    `Variação %` = var_pct,
+    Ranking = rank_decada
+  ) %>%
+  datatable(options = list(pageLength = 10))
+```
+
+5.  Conclusão
+
+Terminadas todas as análises pensadas até o período de 2010 permitiu
+identificar padrões socioculturais e revelou dinâmicas distintas de
+popularidade e ciclo de vida dos nomes. Das quais notou-se a existência
+de dois grupos de nomes, os clássicos tais como Ana e João que
+permaneceram frequentes no decorrer das décadas e nomes de tendência dos
+quais marcaram gerações específicas.
+
+Além disso, observações das variações percentuais, tabelas e rankings
+demonstram que a popularidade dos nomes é rotativa e competitiva
+apresentando também sinais nas taxas de variações de que os nomes não
+deixam de existir abruptamente, mas sim é um decréscimo gradual ao longo
+dos períodos. Tais informações podem ser confirmadas através do modelo
+preditivo para observar o cenário provável dos nomes na próxima década e
+que as últimas décadas (últimos 20 anos) tendem a exercer maior peso
+sobre a predição e seu provável motivo se deve ao crescimento acelerado
+da população brasileira no geral.
+
+Por fim, os dados indicam que a escolha de nomes no Brasil não é
+aleatória, mas segue padrões estatísticos detectáveis de ascensão,
+consolidação e declínio. As ferramentas analíticas desenvolvidas neste
+estudo provam-se essenciais para estudos onomásticos temporais e
+compreender não apenas o passado demográfico, mas para antecipar a
+composição onomástica das próximas gerações.

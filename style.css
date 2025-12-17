@@ -1,0 +1,136 @@
+/* Estilo do título principal do app */
+.app-title-clean {
+    font-size: 26px;           
+    font-weight: 600;          
+    color: #ffffff;           
+    margin-top: 5px !important;
+    margin-bottom: -5px !important;  
+    padding: 0 !important;     
+    line-height: 1.1;          
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 6px !important;
+}
+
+/* Estilo do corpo principal do app */
+body {
+    background-color: #1a1d21 !important;
+    color: #eaeaea !important;
+    font-family: "Inter", sans-serif;
+}
+
+/* Estilo da Value Box*/
+.value-box {
+    border-radius: 18px !important;
+    padding: 22px;
+    color: #ffffff !important;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.35);
+    transition: 0.3s;
+}
+
+.value-box:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+}
+
+.value-box .value-box-title {
+    font-size: 18px;
+    opacity: 0.85;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.value-box .value-box-value {
+    font-size: 34px;
+    font-weight: 700;
+}
+
+/* Estilo dos cards */
+.card {
+    border-radius: 18px !important;
+    background-color: #23272b !important;
+    color: #e0e0e0 !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important;
+    transition: 0.3s;
+}
+
+.card:hover {
+    box-shadow: 0 6px 28px rgba(0,0,0,0.35) !important;
+}
+
+.card .card-header {
+    font-size: 20px;
+    font-weight: 600;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+/* Formatação do espaçamento do nome das abas */
+.nav-link {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
+
+/* Estilo das caixas de seleção */
+.selectize-input {
+    background-color: #1a1d21 !important;
+    border-radius: 8px !important;
+    border: 1px solid #495057 !important;
+    padding: 8px 12px !important;
+    color: #fff !important;
+}
+
+.selectize-dropdown {
+    background-color: #1a1d21 !important;
+    border-radius: 10px !important;
+    border: 1px solid #495057 !important;
+    color: #fff;
+}
+
+/* Cor do item selecionado dentro da caixa de seleção */
+.selectize-control .item {
+    background-color: #4a5560 !important;   
+    color: #ffffff !important;              
+    border-radius: 8px !important;         
+    padding: 4px 8px !important;
+}
+
+/* Quando o item está clicado */
+.selectize-control .item.active {
+    background-color: #3b444d !important;
+    color: #ffffff !important;
+}
+
+/* Estilo do slider, que escolhe o intervalo de décadas */
+.irs--shiny .irs-bar {
+    background-color: #2c3e50 !important;
+}
+
+.irs--shiny .irs-handle {
+    border-color: #2c3e50 !important;
+    background-color: #2c3e50 !important;
+}
+
+.irs--shiny .irs-line {
+    background-color: #3b3f45 !important;
+}
+
+/* Estilo das tabelas (DT) */
+table.dataTable {
+    color: #ffffff !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    color: #ffffff !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #18bc9c !important;
+    color: #000 !important;
+}
+
+/* Estilo do plotly */
+.js-plotly-plot .plotly {
+    background-color: transparent !important;
+}
